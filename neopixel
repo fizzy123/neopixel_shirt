@@ -1,0 +1,211 @@
+#include <Adafruit_NeoPixel.h>
+#include <avr/power.h> // Comment out this line for non-AVR boards (Arduino Due, etc.)
+
+#define PIN 6
+
+// Parameter 1 = number of pixels in strip
+// Parameter 2 = Arduino pin number (most are valid)
+// Parameter 3 = pixel type flags, add together as needed:
+//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
+//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
+//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
+//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(150, PIN, NEO_GRB + NEO_KHZ800);
+
+// IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
+// pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
+// and minimize distance between Arduino and first pixel.  Avoid connecting
+// on a live circuit...if you must, connect GND first.
+
+void setup() {
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+  randomSeed(analogRead(0));
+}
+
+void loop() {
+  rainbowAntiChaser(20);
+}
+
+// Fill the dots one after the other with a color
+void colorWipe(uint32_t c, uint8_t wait) {
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i, c);
+    strip.show();
+    delay(wait);
+  }
+}
+
+int myPositions[10];
+byte myColors[10];
+
+void rand(uint8_t wait) {
+  strip.setPixelColor(random(strip.numPixels()), Wheel(random(256) & 255));
+
+  strip.show();
+  delay(wait);
+}
+
+
+void rainbow(uint8_t wait) {
+  uint16_t i, j;
+
+  for(j=0; j<256; j++) {
+    for(i=0; i<strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel((i+j) & 255));
+    }
+    strip.show();
+    delay(wait);
+  }
+}
+
+byte pos = 0;
+byte direction = 0;
+
+void rainbowPulse(uint8_t wait) {
+  uint16_t i, j;
+
+  for(j=0; j<256; j++) {
+    for(i=0; i<strip.numPixels(); i++) {
+      byte r, g, b;
+      byte r_step, g_step, b_step;
+      uint32_t color = Wheel((i+j) & 255);
+      r = color & 255;
+      g = (color >> 8) & 255;
+      b = (color >> 16) & 255;
+
+      r_step = r / 30;
+      g_step = g / 30;
+      b_step = b / 30;
+
+      r -= (pos * r_step);
+      g -= (pos * g_step);
+      b -= (pos * b_step);
+      strip.setPixelColor(i, r | (((uint32_t) g) << 8) | (((uint32_t) b) << 16));
+    }
+    if (direction) {
+      pos++;
+    } else {
+      pos--;
+    }
+    if (pos > 29) {
+      direction = !direction;
+    }
+    strip.show();
+    delay(wait);
+  }
+}
+
+uint16_t k[3][10] = {{0,1,2,3,4,5,6,7,8,9},    
+  {50,51,52,53,54,55,56,57,58,59}, 
+  {100,101,102,103,104,105,106,107,108,109}};
+
+void rainbowChaser(uint8_t wait) {
+  uint16_t i, j;
+
+  byte counter, tail;
+  for(j=0; j<256; j++) {
+    for(i=0; i<strip.numPixels(); i++) {
+      byte r, g, b;
+      uint32_t color = Wheel((i+j) & 255);
+
+      r = color & 255;
+      g = (color >> 8) & 255;
+      b = (color >> 16) & 255;
+      for (counter=0; counter<3; counter++) {
+        for (tail=0; tail<10; tail++) {
+          if (i == (k[counter][tail])) {
+            r /= (tail + 1);
+            g /= (tail + 1);
+            b /= (tail + 1); 
+          }
+        }
+      }
+      strip.setPixelColor(i, r | (((uint32_t) g) << 8) | (((uint32_t) b) << 16));
+    }
+    for (counter=0; counter<3; counter++) {
+      for (tail=0; tail<10; tail++) {
+        k[counter][tail]++;
+        if (k[counter][tail] >= 150) {
+          k[counter][tail] = 0;
+        }
+      }
+    }
+    strip.show();
+    delay(wait);
+  }
+}
+
+void rainbowAntiChaser(uint8_t wait) {
+  uint16_t i, j;
+
+  byte counter, tail;
+  byte found = 0;
+  for(j=0; j<256; j++) {
+    for(i=0; i<strip.numPixels(); i++) {
+      byte r, g, b;
+      uint32_t color = Wheel((i+j) & 255);
+      r = color & 255;
+      g = (color >> 8) & 255;
+      b = (color >> 16) & 255;
+      for (counter=0; counter<3; counter++) {
+        for (tail=0; tail<10; tail++) {
+          if (i == (k[counter][tail])) {
+            r /= (10 - tail);
+            g /= (10 - tail);
+            b /= (10 - tail);
+            found = 1;
+          }
+        }
+      }
+      if (!found) {
+        r = 0;
+        g = 0;
+        b = 0;
+      } else {
+        found = 0;
+      }
+      strip.setPixelColor(i, r | (((uint32_t) g) << 8) | (((uint32_t) b) << 16));
+    }
+    for (counter=0; counter<3; counter++) {
+      for (tail=0; tail<10; tail++) {
+        k[counter][tail]++;
+        if (k[counter][tail] >= 150) {
+          k[counter][tail] = 0;
+        }
+      }
+    }
+    strip.show();
+    delay(wait);
+  }
+}
+
+// Slightly different, this makes the rainbow equally distributed throughout
+void rainbowCycle(uint8_t wait) {
+  uint16_t i, j;
+
+  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
+    for(i=0; i< strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+    }
+    strip.show();
+    delay(wait);
+  }
+}
+
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(byte WheelPos) {
+  WheelPos = 255 - WheelPos;
+  if(WheelPos < 85) {
+    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  } else if(WheelPos < 170) {
+    WheelPos -= 85;
+    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  } else {
+    WheelPos -= 170;
+    return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+  }
+}
+
